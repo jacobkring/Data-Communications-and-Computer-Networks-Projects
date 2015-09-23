@@ -50,16 +50,35 @@ int main(int argc, char * argv[]) {
     }
 
     /* initialize and make socket */
+    printf("Initializing socket...\n");
+    if((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP))<0){
+        // error processing;
+    }
 
     /* set server address*/
+    printf("Set server address...\n");
+    memset(&saddr, 0, sizeof(saddr));
+    saddr.sin_family = AF_INET;
+    saddr.sin_addr.s_addr = INADDR_ANY;
+    saddr.sin_port = htons(server_port);
 
     /* bind listening socket */
+    printf("Bind listening socket...\n");
+    if(bind(sock, (struct sockaddr *)&saddr, sizeof(saddr))<0){
+        // error processing.
+    }
 
     /* start listening */
+    printf("Start listening...\n");
+    if (listen(sock, 32) < 0){
+        // error processing
+        printf("we have a listen error\n");
+    }
 
     /* connection handling loop: wait to accept connection */
 
     while (1) {
+    	printf("Connection handling loop...\n");
 	
 	/* create read list */
 	
