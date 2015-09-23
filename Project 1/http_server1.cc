@@ -129,6 +129,7 @@ int handle_connection(int sock) {
         /* try opening the file */
         FILE * pFile;
         pFile = fopen(pch, "r");
+
         if(pFile!=NULL){
         	ok = true;
             f_size = get_content_length(pch);
@@ -142,7 +143,7 @@ int handle_connection(int sock) {
             printf(ok_response_f);
 
 		/* send headers */
-    		if((res=write(c, ok_response_f, sizeof(ok_response_f)-1))){
+    		if((res=write(c, response_with_length, strlen(response_with_length)-1)) <= 0){
     		// error handling
     		}
 		/* send file */
@@ -156,7 +157,7 @@ int handle_connection(int sock) {
 				}
 			}	
     	} else { //File does not exist
-    		if((res=write(c, notok_response, sizeof(notok_response)-1))){
+    		if((res=write(c, notok_response, strlen(notok_response)-1)) <= 0){
     		  // error processing
     		}
 		// send error response
