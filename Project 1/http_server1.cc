@@ -10,6 +10,8 @@
 #include <sys/types.h>          /* See NOTES */
 #include <sys/socket.h>
 #include <netdb.h>
+ #include <fcntl.h>
+ #include <unistd.h>
 
 
 #define BUFSIZE 1024
@@ -21,6 +23,9 @@ int main(int argc, char * argv[]) {
     int server_port = -1;
     int rc          =  0;
     int sock        = -1;
+    int i, s, c, len, pos, res, port;
+    char buf[FILENAMESIZE];
+    struct sockaddr_in saddr;
 
     /* parse command line args */
     if (argc != 3) {
@@ -51,14 +56,25 @@ int main(int argc, char * argv[]) {
 
 
     /* initialize and make socket */
-
+    if((s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP))<0){
+        // error processing;
+    }
     /* set server address*/
-
+    memset(&saddr, 0, sizeof(saddr));
+    saddr.sin_family = AF_INET;
+    saddr.sin_addr.s_addr = INADDR_ANY;
+    saddr.sin_port = htons(port);
     /* bind listening socket */
-
+    if(bind(s, (struct sockaddr *)&saddr, sizeof(saddr))<0){
+        // error processing.
+    }
     /* start listening */
-
+    if (listen(s, 32) < 0){
+        // error processing
+    }
     /* connection handling loop: wait to accept connection */
+
+
 
     while (1) {
 	/* handle connections */
@@ -67,6 +83,10 @@ int main(int argc, char * argv[]) {
 }
 
 int handle_connection(int sock) {
+    int i, c, s, len, res;
+    char buf[FILENAMESIZE];
+    
+
     bool ok = false;
 
     const char * ok_response_f = "HTTP/1.0 200 OK\r\n"	\
@@ -80,7 +100,22 @@ int handle_connection(int sock) {
 	"</body></html>\n";
     
     /* first read loop -- get request and headers*/
-    
+    while((c = accept(s, NULL, NULL)) >= 0){
+        if((len = read(c, buf, sizeof buf)) <= 0){
+            // error processing
+        }
+
+        buf[len] = 0;
+
+        for (i = 0; i < len; i++){
+            if(islower(buf[i])){
+                buf[i] = toupper(buf[i]);
+            }
+        }
+        if((res=write(c, buf, len)) <= 0){
+            // error processing
+        }
+    }
     /* parse request to get file name */
     /* Assumption: this is a GET request and filename contains no spaces*/
 
