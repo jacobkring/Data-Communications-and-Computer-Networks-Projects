@@ -112,6 +112,7 @@ int handle_connection(int sock) {
         }
 
         buf[len] = 0;
+        printf("%s", buf);
 
         /* parse request to get file name */
         /* Assumption: this is a GET request and filename contains no spaces*/
@@ -119,7 +120,7 @@ int handle_connection(int sock) {
         char * pch;
         pch = strtok(buf, " ");
         pch = strtok(NULL, " ");
-        printf("%s\n", pch);
+        //printf("%s\n", pch);
         /* try opening the file */
         FILE * pFile;
         pFile = fopen(pch, "r");
@@ -138,8 +139,8 @@ int handle_connection(int sock) {
 			char file_data[BUFSIZE];
 
 			size_t nbytes = 0;
-			while(( nbytes = fread(file_data, sizeof(char), BUFSIZE, pFile))>0){
-				while(sent = send(c, file_data, nbytes, 0) > 0){
+			while(( nbytes = fread(file_data, sizeof(char), BUFSIZE, pFile)) >0 ){
+				if(sent = send(c, file_data, nbytes, 0) > 0){
 					offset += sent;
 					nbytes -= sent;
 				}
