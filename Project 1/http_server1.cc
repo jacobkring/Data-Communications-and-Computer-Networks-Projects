@@ -75,7 +75,7 @@ int main(int argc, char * argv[]) {
     }
     /* start listening */
     printf("Start listening...\n");
-    if (listen(sock, 5) < 0){
+    if (listen(sock, 32) < 0){
         // error processing
         printf("we have a listen error\n");
     }
