@@ -96,7 +96,7 @@ int main(int argc, char * argv[]) {
     	fprintf(stdout, "Send error.\n");
     }
     else{
-    	printf("Send worked.\n");
+    	//printf("Send worked.\n");
     }
 
     /* wait till socket can be read. */
