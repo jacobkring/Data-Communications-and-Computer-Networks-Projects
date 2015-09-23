@@ -1,9 +1,10 @@
-/* UNCOMMENT FOR MINET 
- * #include "minet_socket.h"
- */
+
+//#include "minet_socket.h"
+ 
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <fcntl.h>
 #include <ctype.h>
 #include <sys/stat.h>
@@ -16,11 +17,25 @@
 #define FILENAMESIZE 100
 
 int handle_connection(int sock);
+int get_content_length(char * filename);
 
 int main(int argc, char * argv[]) {
     int server_port = -1;
     int rc          =  0;
     int sock        = -1;
+    int i, j, rv;
+
+    fd_set master;
+    fd_set read_fds;
+    int maxfd;
+    int newsocket;
+
+    struct sockaddr_in saddr;
+    struct sockaddr_storage remoteaddr;
+    socklen_t addrlen;
+
+    FD_ZERO(&master);
+    FD_ZERO(&read_fds);
 
     /* parse command line args */
     if (argc != 3) {
@@ -75,10 +90,42 @@ int main(int argc, char * argv[]) {
         printf("we have a listen error\n");
     }
 
-    /* connection handling loop: wait to accept connection */
+    FD_SET(sock, &master);
+    maxfd = sock;
 
+    /* connection handling loop: wait to accept connection */
+    printf("Connection handling loop...\n");
     while (1) {
-    	printf("Connection handling loop...\n");
+
+    	read_fds = master; //copy the master list
+    	if(select(maxfd+1, &read_fds, NULL, NULL, NULL) == -1){
+    		//error handling
+    	}
+
+    	for(i = 0; i <= maxfd; i++){
+    		if(FD_ISSET(i, &read_fds)){ // Socket is ready for reading
+    			if(i == sock){ //This is the Listening socket
+    				addrlen = sizeof remoteaddr;
+    				newsocket = accept(sock, (struct sockaddr *)&remoteaddr, &addrlen);
+
+    				if(newsocket == -1){
+    					//error handling, accept returned bad socket
+    				} else {
+    					FD_SET(newsocket, &master); //add socket to master list
+    					if(newsocket > maxfd){
+    						maxfd = newsocket; //need to keep track of max fd for select()
+    					}
+    					printf("selectserver: new connection from socket %d\n", newsocket);
+    				}
+    			} else{ // This is an Accept socket
+    				printf("Start connection handling.");
+    				rc = handle_connection(i);
+    				close(i); // Close when finished
+    				FD_CLR(i, &master); //Remove from master set
+    			}
+    		}
+    	}
+
 	
 	/* create read list */
 	
@@ -90,12 +137,16 @@ int main(int argc, char * argv[]) {
 	
 	/* for a connection socket, handle the connection */
 	
-	rc = handle_connection(sock);
+	//rc = handle_connection(sock);
 	
     }
 }
 
 int handle_connection(int sock) {
+
+		int i, c, len, res, offset, sent;
+    int f_size = 0;
+    char buf[FILENAMESIZE];
     bool ok = false;
 
     const char * ok_response_f = "HTTP/1.0 200 OK\r\n"	\
@@ -107,23 +158,63 @@ int handle_connection(int sock) {
 	"<html><body bgColor=black text=white>\n"		\
 	"<h2>404 FILE NOT FOUND</h2>\n"				\
 	"</body></html>\n";
+
+	char response_with_length[strlen(ok_response_f)];
     
     /* first read loop -- get request and headers*/
 
-    /* parse request to get file name */
-    /* Assumption: this is a GET request and filename contains no spaces*/
+    if((len = read(c, buf, sizeof(buf)-1)) <= 0){
+            // error processing
+        }
 
-    /* try opening the file */
+        buf[len] = 0;
+        printf("%s", buf);
 
-    /* send response */
-    if (ok) {
-	/* send headers */
-	
-	/* send file */
-	
-    } else {
-	// send error response
-    }
+        /* parse request to get file name */
+        /* Assumption: this is a GET request and filename contains no spaces*/
+
+        char * pch;
+        pch = strtok(buf, " ");
+        pch = strtok(NULL, " ");
+        //printf("%s\n", pch);
+        /* try opening the file */
+        FILE * pFile;
+        pFile = fopen(pch, "r");
+
+        if(pFile!=NULL){
+        	ok = true;
+            f_size = get_content_length(pch);
+        }
+        else{
+            ok = false;
+        }
+            offset = 0;
+    	/* send response */
+    	if (ok) { //File Exists
+
+            /* Format OK response */
+            sprintf(response_with_length, ok_response_f, f_size);
+
+		/* send headers */
+    		if((res=write(c, response_with_length, strlen(response_with_length)-1)) <= 0){
+    		// error handling
+    		}
+		/* send file */
+			char file_data[BUFSIZE];
+
+			size_t nbytes = 0;
+			while(( nbytes = fread(file_data, sizeof(char), BUFSIZE, pFile)) >0 ){
+				if(sent = send(c, file_data, nbytes, 0) > 0){
+					offset += sent;
+					nbytes -= sent;
+				}
+			}	
+    	} else { //File does not exist
+    		if((res=write(c, notok_response, strlen(notok_response)-1)) <= 0){
+    		  // error processing
+    		}
+		// send error response
+    	}
 
     /* close socket and free space */
   
@@ -132,4 +223,17 @@ int handle_connection(int sock) {
     } else {
 	return -1;
     }
+}
+
+int get_content_length(char * file_name){
+    char ch;
+    int size = 0;
+    FILE * fp;
+
+    fp = fopen(file_name, "r");
+    fseek(fp, 0, SEEK_END);
+    size = ftell(fp);
+
+    fclose(fp);
+    return size;
 }
