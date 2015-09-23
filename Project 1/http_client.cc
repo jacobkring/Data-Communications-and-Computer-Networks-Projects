@@ -153,6 +153,7 @@ int main(int argc, char * argv[]) {
 
     /*close socket and deinitialize */
     close(s);
+    free(req);
 
 
     if (ok) {

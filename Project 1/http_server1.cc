@@ -23,8 +23,9 @@ int main(int argc, char * argv[]) {
     int server_port = -1;
     int rc          =  0;
     int sock        = -1;
-    int i, s, c, len, pos, res, port;
+    int i, c, len, pos, res, port;
     char buf[FILENAMESIZE];
+
     struct sockaddr_in saddr;
 
     /* parse command line args */
@@ -56,21 +57,26 @@ int main(int argc, char * argv[]) {
 
 
     /* initialize and make socket */
-    if((s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP))<0){
+    printf("Initializing socket\n");
+    if((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP))<0){
         // error processing;
     }
     /* set server address*/
+    printf("Set server address\n");
     memset(&saddr, 0, sizeof(saddr));
     saddr.sin_family = AF_INET;
     saddr.sin_addr.s_addr = INADDR_ANY;
-    saddr.sin_port = htons(port);
+    saddr.sin_port = htons(server_port);
     /* bind listening socket */
-    if(bind(s, (struct sockaddr *)&saddr, sizeof(saddr))<0){
+    printf("bind listening socket\n");
+    if(bind(sock, (struct sockaddr *)&saddr, sizeof(saddr))<0){
         // error processing.
     }
     /* start listening */
-    if (listen(s, 32) < 0){
+    printf("start listening\n");
+    if (listen(sock, 32) < 0){
         // error processing
+        printf("we have a listen error\n");
     }
     /* connection handling loop: wait to accept connection */
 
@@ -78,12 +84,13 @@ int main(int argc, char * argv[]) {
 
     while (1) {
 	/* handle connections */
+    printf("connection handling loop\n");
 	rc = handle_connection(sock);
     }
 }
 
 int handle_connection(int sock) {
-    int i, c, s, len, res;
+    int i, c, len, res, offset, sent;
     char buf[FILENAMESIZE];
     
 
@@ -98,41 +105,60 @@ int handle_connection(int sock) {
 	"<html><body bgColor=black text=white>\n"		\
 	"<h2>404 FILE NOT FOUND</h2>\n"
 	"</body></html>\n";
-    
     /* first read loop -- get request and headers*/
-    while((c = accept(s, NULL, NULL)) >= 0){
-        if((len = read(c, buf, sizeof buf)) <= 0){
+    while((c = accept(sock, NULL, NULL)) >= 0){
+        if((len = read(c, buf, sizeof(buf)-1)) <= 0){
             // error processing
         }
 
         buf[len] = 0;
 
-        for (i = 0; i < len; i++){
-            if(islower(buf[i])){
-                buf[i] = toupper(buf[i]);
-            }
-        }
-        if((res=write(c, buf, len)) <= 0){
-            // error processing
-        }
-    }
-    /* parse request to get file name */
-    /* Assumption: this is a GET request and filename contains no spaces*/
+        printf("%s", buf);
 
-    /* try opening the file */
+        /* parse request to get file name */
+        /* Assumption: this is a GET request and filename contains no spaces*/
 
-    /* send response */
-    if (ok) {
-	/* send headers */
-	
-	/* send file */
-	
-    } else {
-	// send error response
+        char * pch;
+        pch = strtok(buf, " ");
+        pch = strtok(NULL, " ");
+        printf("%s\n", pch);
+        /* try opening the file */
+        FILE * pFile;
+        pFile = fopen(pch, "r");
+        if(pFile!=NULL){
+        	ok = true;
+        }
+            offset = 0;
+    	/* send response */
+    	if (ok) {
+		/* send headers */
+    		if((res=write(c, ok_response_f, sizeof(ok_response_f)-1))){
+    		// error handling
+    		}
+		/* send file */
+			char file_data[BUFSIZE];
+
+			size_t nbytes = 0;
+			while(( nbytes = fread(file_data, sizeof(char), BUFSIZE, pFile))>0){
+				while(sent = send(c, file_data, nbytes, 0) > 0){
+					offset += sent;
+					nbytes -= sent;
+				}
+			}	
+    	} else {
+    		if((res=write(c, notok_response, sizeof(notok_response)-1))){
+    		// error processing
+    		}
+		// send error response
+    	}
     }
     
+
+    
     /* close socket and free space */
-  
+	close(c);
+
+
     if (ok) {
 	return 0;
     } else {
