@@ -57,24 +57,24 @@ int main(int argc, char * argv[]) {
 
 
     /* initialize and make socket */
-    printf("Initializing socket\n");
+    printf("Initializing socket...\n");
     if((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP))<0){
         // error processing;
     }
     /* set server address*/
-    printf("Set server address\n");
+    printf("Set server address...\n");
     memset(&saddr, 0, sizeof(saddr));
     saddr.sin_family = AF_INET;
     saddr.sin_addr.s_addr = INADDR_ANY;
     saddr.sin_port = htons(server_port);
     /* bind listening socket */
-    printf("bind listening socket\n");
+    printf("Bind listening socket...\n");
     if(bind(sock, (struct sockaddr *)&saddr, sizeof(saddr))<0){
         // error processing.
     }
     /* start listening */
-    printf("start listening\n");
-    if (listen(sock, 32) < 0){
+    printf("Start listening...\n");
+    if (listen(sock, 5) < 0){
         // error processing
         printf("we have a listen error\n");
     }
@@ -84,7 +84,7 @@ int main(int argc, char * argv[]) {
 
     while (1) {
 	/* handle connections */
-    printf("connection handling loop\n");
+    printf("Connection handling loop...\n");
 	rc = handle_connection(sock);
     }
 }
@@ -113,8 +113,6 @@ int handle_connection(int sock) {
 
         buf[len] = 0;
 
-        printf("%s", buf);
-
         /* parse request to get file name */
         /* Assumption: this is a GET request and filename contains no spaces*/
 
@@ -130,7 +128,8 @@ int handle_connection(int sock) {
         }
             offset = 0;
     	/* send response */
-    	if (ok) {
+    	if (ok) { //File Exists
+
 		/* send headers */
     		if((res=write(c, ok_response_f, sizeof(ok_response_f)-1))){
     		// error handling
@@ -145,18 +144,20 @@ int handle_connection(int sock) {
 					nbytes -= sent;
 				}
 			}	
-    	} else {
+    	} else { //File does not exist
     		if((res=write(c, notok_response, sizeof(notok_response)-1))){
-    		// error processing
+    		  // error processing
     		}
 		// send error response
     	}
+
+        close(c);
     }
     
 
     
     /* close socket and free space */
-	close(c);
+	close(sock);
 
 
     if (ok) {
