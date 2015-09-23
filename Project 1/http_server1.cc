@@ -134,13 +134,15 @@ int handle_connection(int sock) {
         	ok = true;
             f_size = get_content_length(pch);
         }
+        else{
+            ok = false;
+        }
             offset = 0;
     	/* send response */
     	if (ok) { //File Exists
 
             /* Format OK response */
             sprintf(response_with_length, ok_response_f, f_size);
-            printf(ok_response_f);
 
 		/* send headers */
     		if((res=write(c, response_with_length, strlen(response_with_length)-1)) <= 0){
