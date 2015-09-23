@@ -105,11 +105,11 @@ int main(int argc, char * argv[]) {
     	for(i = 0; i <= maxfd; i++){
     		if(FD_ISSET(i, &read_fds)){ // Socket is ready for reading
     			if(i == sock){ //This is the Listening socket
-    				addrlen = sizeof remoteaddr;
-    				newsocket = accept(sock, (struct sockaddr *)&remoteaddr, &addrlen);
+    				newsocket = accept(sock, NULL, NULL);
 
     				if(newsocket == -1){
     					//error handling, accept returned bad socket
+    					printf("Bad accept socket");
     				} else {
     					FD_SET(newsocket, &master); //add socket to master list
     					if(newsocket > maxfd){
@@ -118,7 +118,7 @@ int main(int argc, char * argv[]) {
     					printf("selectserver: new connection from socket %d\n", newsocket);
     				}
     			} else{ // This is an Accept socket
-    				printf("Start connection handling.");
+    				printf("Start connection handling.\n");
     				rc = handle_connection(i);
     				close(i); // Close when finished
     				FD_CLR(i, &master); //Remove from master set
@@ -163,7 +163,7 @@ int handle_connection(int sock) {
     
     /* first read loop -- get request and headers*/
 
-    if((len = read(c, buf, sizeof(buf)-1)) <= 0){
+    if((len = read(sock, buf, sizeof(buf)-1)) <= 0){
             // error processing
         }
 
@@ -196,7 +196,7 @@ int handle_connection(int sock) {
             sprintf(response_with_length, ok_response_f, f_size);
 
 		/* send headers */
-    		if((res=write(c, response_with_length, strlen(response_with_length)-1)) <= 0){
+    		if((res=write(sock, response_with_length, strlen(response_with_length)-1)) <= 0){
     		// error handling
     		}
 		/* send file */
@@ -204,13 +204,13 @@ int handle_connection(int sock) {
 
 			size_t nbytes = 0;
 			while(( nbytes = fread(file_data, sizeof(char), BUFSIZE, pFile)) >0 ){
-				if(sent = send(c, file_data, nbytes, 0) > 0){
+				if(sent = send(sock, file_data, nbytes, 0) > 0){
 					offset += sent;
 					nbytes -= sent;
 				}
 			}	
     	} else { //File does not exist
-    		if((res=write(c, notok_response, strlen(notok_response)-1)) <= 0){
+    		if((res=write(sock, notok_response, strlen(notok_response)-1)) <= 0){
     		  // error processing
     		}
 		// send error response
