@@ -18,6 +18,7 @@
 #define FILENAMESIZE 100
 
 int handle_connection(int sock);
+int get_content_length(char * file_name);
 
 int main(int argc, char * argv[]) {
     int server_port = -1;
@@ -91,6 +92,7 @@ int main(int argc, char * argv[]) {
 
 int handle_connection(int sock) {
     int i, c, len, res, offset, sent;
+    int f_size = 0;
     char buf[FILENAMESIZE];
     
 
@@ -105,6 +107,9 @@ int handle_connection(int sock) {
 	"<html><body bgColor=black text=white>\n"		\
 	"<h2>404 FILE NOT FOUND</h2>\n"
 	"</body></html>\n";
+
+    char response_with_length[strlen(ok_response_f)];
+
     /* first read loop -- get request and headers*/
     while((c = accept(sock, NULL, NULL)) >= 0){
         if((len = read(c, buf, sizeof(buf)-1)) <= 0){
@@ -126,10 +131,15 @@ int handle_connection(int sock) {
         pFile = fopen(pch, "r");
         if(pFile!=NULL){
         	ok = true;
+            f_size = get_content_length(pch);
         }
             offset = 0;
     	/* send response */
     	if (ok) { //File Exists
+
+            /* Format OK response */
+            sprintf(response_with_length, ok_response_f, f_size);
+            printf(ok_response_f);
 
 		/* send headers */
     		if((res=write(c, ok_response_f, sizeof(ok_response_f)-1))){
@@ -166,4 +176,17 @@ int handle_connection(int sock) {
     } else {
 	return -1;
     }
+}
+
+int get_content_length(char * file_name){
+    char ch;
+    int size = 0;
+    FILE * fp;
+
+    fp = fopen(file_name, "r");
+    fseek(fp, 0, SEEK_END);
+    size = ftell(fp);
+
+    fclose(fp);
+    return size;
 }
