@@ -12,6 +12,7 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
 
 
 
@@ -72,12 +73,17 @@ int main(int argc, char * argv[]) {
 
    
     if((s=socket(AF_INET, SOCK_STREAM, IPPROTO_TCP))<0){
-    	// error processing
+  	// error processing
+	fprintf(stderr, "Error making socket: %s\n", strerror(errno));
+    	exit(1);
     }
     /* get host IP address  */
     /* Hint: use gethostbyname() */
     if((hp=gethostbyname(server_name))==NULL){
 		// error processing
+	close(s);
+	fprintf(stderr, "Error getting host IP address: %s\n", strerror(errno));
+    	exit(1);
     }
     /* set address */
     saddr.sin_family = AF_INET;
@@ -87,16 +93,18 @@ int main(int argc, char * argv[]) {
     
 	if(connect(s, (struct sockaddr *)&saddr, sizeof(saddr))<0){
 		// error processing
+		close(s);
+		fprintf(stderr, "Error connection to server socket: %s\n", strerror(errno));
+		exit(1);
 	}
 
 	
     /* send request message */
     sprintf(req, "GET %s HTTP/1.0\r\n\r\n", server_path);
     if(res = send(s, req, strlen(req), 0)<=0){
-    	fprintf(stdout, "Send error.\n");
-    }
-    else{
-    	//printf("Send worked.\n");
+    	close(s);
+	fprintf(stderr, "Send request error: %s\n", strerror(errno));
+	exit(1);
     }
 
     /* wait till socket can be read. */
@@ -110,8 +118,9 @@ int main(int argc, char * argv[]) {
     	res = read(s, buf, 12);
     	
         if(res == -1){
-           fprintf(stderr, "SOMETHING");
-        }
+           fprintf(stderr, "Nothing able to be read from socket.");
+           exit(1);
+	}
         else{
         /* first read loop -- read headers */
 
