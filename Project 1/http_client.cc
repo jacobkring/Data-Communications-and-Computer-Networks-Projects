@@ -59,7 +59,6 @@ int main(int argc, char * argv[]) {
 	fprintf(stderr, "First argument must be k or u\n");
 	exit(-1);
     }
-
     
     /* make socket */
     int s, port, len, res;
@@ -90,6 +89,12 @@ int main(int argc, char * argv[]) {
 	memcpy(&saddr.sin_addr.s_addr, hp->h_addr, hp->h_length);
 	saddr.sin_port = htons(port);
     /* connect to the server socket */
+
+  //Deny requests of root directory.
+  if(strcmp(server_path, "/") == 0){
+      fprintf(stderr, "Access denied. Cannot request root.\n");
+      exit(-1);
+  }
     
 	if(connect(s, (struct sockaddr *)&saddr, sizeof(saddr))<0){
 		// error processing
@@ -98,7 +103,6 @@ int main(int argc, char * argv[]) {
 		exit(1);
 	}
 
-	
     /* send request message */
     sprintf(req, "GET %s HTTP/1.0\r\n\r\n", server_path);
     if(res = send(s, req, strlen(req), 0)<=0){
@@ -143,17 +147,7 @@ int main(int argc, char * argv[]) {
         		}
         		printf("\n");
        		}
-        
 
-
-
-
-        // Normal reply has return code 200
-
-        /* print first part of response: header, error code, etc. */
-
-        /* second read loop -- print out the rest of the response: real web content */
-        
        	}
         
 

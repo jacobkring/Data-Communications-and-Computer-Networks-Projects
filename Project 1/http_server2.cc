@@ -68,6 +68,8 @@ int main(int argc, char * argv[]) {
     printf("Initializing socket...\n");
     if((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP))<0){
         // error processing;
+        fprintf(stderr, "Could not initialize socket.\n");
+        exit(-1);
     }
 
     /* set server address*/
@@ -81,13 +83,16 @@ int main(int argc, char * argv[]) {
     printf("Bind listening socket...\n");
     if(bind(sock, (struct sockaddr *)&saddr, sizeof(saddr))<0){
         // error processing.
+        fprintf(stderr, "Could not bind socket.\n");
+        exit(-1);
     }
 
     /* start listening */
     printf("Start listening...\n");
     if (listen(sock, 32) < 0){
         // error processing
-        printf("we have a listen error\n");
+        fprintf(stderr, "Listen error.\n");
+        exit(-1);
     }
 
     FD_SET(sock, &master);
@@ -99,7 +104,8 @@ int main(int argc, char * argv[]) {
 
     	read_fds = master; //copy the master list
     	if(select(maxfd+1, &read_fds, NULL, NULL, NULL) == -1){
-    		//error handling
+    		fprintf(stderr, "Select failure.");
+            exit(-1);
     	}
 
     	for(i = 0; i <= maxfd; i++){
@@ -109,7 +115,8 @@ int main(int argc, char * argv[]) {
 
     				if(newsocket == -1){
     					//error handling, accept returned bad socket
-    					printf("Bad accept socket");
+    					fprintf(stderr, "Bad accept socket.\n");
+                        exit(-1);
     				} else {
     					FD_SET(newsocket, &master); //add socket to master list
     					if(newsocket > maxfd){
@@ -125,19 +132,6 @@ int main(int argc, char * argv[]) {
     			}
     		}
     	}
-
-	
-	/* create read list */
-	
-	/* do a select */
-	
-	/* process sockets that are ready */
-	
-	/* for the accept socket, add accepted connection to connections */
-	
-	/* for a connection socket, handle the connection */
-	
-	//rc = handle_connection(sock);
 	
     }
 }
@@ -176,7 +170,11 @@ int handle_connection(int sock) {
         char * pch;
         pch = strtok(buf, " ");
         pch = strtok(NULL, " ");
-        //printf("%s\n", pch);
+
+        // Trim leading forward slash
+        if(pch[0] == '/'){
+            pch++;
+        }
         /* try opening the file */
         FILE * pFile;
         pFile = fopen(pch, "r");

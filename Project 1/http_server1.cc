@@ -61,6 +61,8 @@ int main(int argc, char * argv[]) {
     printf("Initializing socket...\n");
     if((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP))<0){
         // error processing;
+        fprintf(stderr, "Could not initialize socket.\n");
+        exit(-1);
     }
     /* set server address*/
     printf("Set server address...\n");
@@ -72,12 +74,15 @@ int main(int argc, char * argv[]) {
     printf("Bind listening socket...\n");
     if(bind(sock, (struct sockaddr *)&saddr, sizeof(saddr))<0){
         // error processing.
+        fprintf(stderr, "Could not bind socket.\n");
+        exit(-1);
     }
     /* start listening */
     printf("Start listening...\n");
     if (listen(sock, 32) < 0){
         // error processing
-        printf("we have a listen error\n");
+        fprintf(stderr, "Listen error.\n");
+        exit(-1);
     }
     /* connection handling loop: wait to accept connection */
 
@@ -113,7 +118,8 @@ int handle_connection(int sock) {
     /* first read loop -- get request and headers*/
     while((c = accept(sock, NULL, NULL)) >= 0){
         if((len = read(c, buf, sizeof(buf)-1)) <= 0){
-            // error processing
+            fprintf(stderr, "Error reading from socket.\n");
+            exit(-1);
         }
 
         buf[len] = 0;
@@ -125,7 +131,12 @@ int handle_connection(int sock) {
         char * pch;
         pch = strtok(buf, " ");
         pch = strtok(NULL, " ");
-        //printf("%s\n", pch);
+        
+        // Trim leading forward slash
+        if(pch[0] == '/'){
+            pch++;
+        }
+
         /* try opening the file */
         FILE * pFile;
         pFile = fopen(pch, "r");
