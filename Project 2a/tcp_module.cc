@@ -22,16 +22,17 @@
 #include <iostream>
 
 #include "Minet.h"
+#include "tcpstate.h"
 
 using namespace std;
 
-struct TCPState {
-    // need to write this
-    std::ostream & Print(std::ostream &os) const { 
-	os << "TCPState()" ; 
-	return os;
-    }
-};
+// struct TCPState {
+//     // need to write this
+//     std::ostream & Print(std::ostream &os) const { 
+// 	os << "TCPState()" ; 
+// 	return os;
+//     }
+// };
 
 
 int main(int argc, char * argv[]) {
@@ -61,7 +62,6 @@ int main(int argc, char * argv[]) {
     if ( (sock == MINET_NOHANDLE) && 
 	 (MinetIsModuleInConfig(MINET_SOCK_MODULE)) ) {
 
-  cerr << "Hello balls";
 	MinetSendToMonitor(MinetMonitoringEvent("Can't accept from sock_module"));
 
 	return -1;
@@ -69,31 +69,65 @@ int main(int argc, char * argv[]) {
     
     cerr << "tcp_module STUB VERSION handling tcp traffic.......\n";
 
-    MinetSendToMonitor(MinetMonitoringEvent("tcp_module STUB VERSION handling tcp traffic........"));
+    MinetSendToMonitor(MinetMonitoringEvent("tcp_module STUB VERSION handling tcp traffic........\n"));
 
     MinetEvent event;
     double timeout = 1;
 
     while (MinetGetNextEvent(event, timeout) == 0) {
-		MinetSendToMonitor(MinetMonitoringEvent("In the while loop.\n"));
 
-	if ((event.eventtype == MinetEvent::Dataflow) && 
+			if ((event.eventtype == MinetEvent::Dataflow) && 
 	    (event.direction == MinetEvent::IN)) {
 	
-	    if (event.handle == mux) {
-		// ip packet has arrived!
-			MinetSendToMonitor(MinetMonitoringEvent("IP packet has arrived.\n"));
-	    }
+		    if (event.handle == mux) {
+		    	cerr << "packets arriving\n";
+			// ip packet has arrived!
+				MinetSendToMonitor(MinetMonitoringEvent("IP packet has arrived.\n"));
+		    }
 
-	    if (event.handle == sock) {
-		// socket request or response has arrived
-			MinetSendToMonitor(MinetMonitoringEvent("Socket request or response has arrived.\n"));
-	    }
-	}
+		    if (event.handle == sock) {
+		    	cerr << "Socket request...\n";
+			// socket request or response has arrived
+					MinetSendToMonitor(MinetMonitoringEvent("Socket request or response has arrived.\n"));
+					SockRequestResponse request;
+					SockRequestResponse response;
+					MinetReceive(sock,request);
 
-	if (event.eventtype == MinetEvent::Timeout) {
-	    // timeout ! probably need to resend some packets
-	}
+					switch(request.type){
+						case CONNECT:
+							cerr << "CONNECT\n";
+						case ACCEPT: {
+							cerr << "ACCEPT\n";
+
+							TCPState tcp_server(rand() % 5000, LISTEN, 5);
+							ConnectionToStateMapping<TCPState> map(request.connection, Time(), tcp_server, false);
+							clist.push_back(map);
+							response.type=STATUS;
+	    				response.connection=request.connection;
+					    // buffer is zero bytes
+					    response.bytes=0;
+					    response.error=EOK;
+					    MinetSend(sock,response);
+					    
+					  }
+					  break;
+						case WRITE:
+							cerr << "WRITE\n";
+						case FORWARD:
+							cerr << "FORWARD\n";
+						case CLOSE:
+							cerr << "CLOSE\n";
+						case STATUS:
+							cerr << "STATUS\n";
+						break;
+					}
+		    }
+			}
+
+			if (event.eventtype == MinetEvent::Timeout) {
+			    // timeout ! probably need to resend some packets
+				cerr << "Timeout...\n";
+			}
 
     }
 
