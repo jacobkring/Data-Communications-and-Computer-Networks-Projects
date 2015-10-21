@@ -80,8 +80,9 @@ int main(int argc, char * argv[]) {
 	
 		    if (event.handle == mux) {
 		    	// ip packet has arrived!
-		    	cerr << "packets arriving\n";
+		    	cerr << "Packets arriving...\n";
 		    	SockRequestResponse request, response;
+		    	static SockRequestResponse *writer = NULL;
 		    	Packet rcv_packet;
 		    	Packet snd_packet;
 		    	Buffer rcv_buffer;
@@ -129,13 +130,14 @@ int main(int argc, char * argv[]) {
 
 		    	ConnectionList<TCPState>::iterator list_iterator = clist.FindMatching(c);
 		    	if(list_iterator == clist.end()){
-		    		cerr << "Connection not found";
+		    		cerr << "Connection not found in connection list.\n";
 		    	}
 
 		    	switch(state){
 		    		case LISTEN:{
 		    			if(IS_SYN(flags)){
 		    				list_iterator->connection = c;
+		    				cerr << "Listening...\n";
 		    				list_iterator->state.last_acked = list_iterator->state.last_sent;
 		    				list_iterator->state.SetLastRecvd(seq + 1);
 		    				list_iterator->state.last_sent = list_iterator->state.last_sent + 1;
@@ -149,7 +151,35 @@ int main(int argc, char * argv[]) {
 		    				MinetSend(mux, snd_packet);
 
 		    			}
-		    			break;
+		    		} break;
+		    		case SYN_RCVD:{
+		    			cerr << "Received SYN, sending SYN_ACK...\n";
+		    			list_iterator->state.SetState(ESTABLISHED);
+		    			list_iterator->state.SetSendRwnd(window);
+		    			list_iterator->state.SetLastAcked(ack);
+		    			list_iterator->state.last_sent = list_iterator->state.last_sent + 1;
+		    			list_iterator->bTmrActive = false;
+		    			writer = new SockRequestResponse(WRITE, list_iterator->connection, rcv_buffer, 0, EOK);
+		    			MinetSend(sock, *writer);
+		    			delete writer;
+
+		    		} break;
+
+		    		case SYN_SENT:{
+		    			if(IS_ACK(flags) && IS_SYN(flags)){
+		    				cerr << "Sent SYN, received SYN_ACK...\n";
+		    				list_iterator->state.SetLastRecvd(seq + 1);
+		    				list_iterator->state.last_acked = ack;
+		    				list_iterator->state.last_sent = list_iterator->state.last_sent + 1;
+		    				
+		    				createPacket(*list_iterator, 2, 0, false, snd_packet);
+		    				MinetSend(mux, snd_packet);
+
+		    				list_iterator->bTmrActive = false;
+		    				list_iterator->state.SetState(ESTABLISHED);
+		    				SockRequestResponse writer(WRITE, list_iterator->connection, rcv_buffer, 0, EOK);
+		    				MinetSend(sock, writer);
+		    			}
 		    		}
 		    	}
 		    }
@@ -171,7 +201,6 @@ int main(int argc, char * argv[]) {
 							cerr << "CONNECT\n";
 							//TCPState client(1, SYN_SENT, 10);
 						case ACCEPT: {
-							cerr << "ACCEPT\n";
 
 							TCPState tcp_server(1, LISTEN, 10);
 							//cerr << "Tcp_server started\n";
@@ -184,7 +213,7 @@ int main(int argc, char * argv[]) {
 						    response.bytes=0;
 						    response.error=EOK;
 						    MinetSend(sock,response);
-						    cerr << "Sent response\n";
+						    cerr << "ACCEPT...\n";
 					    
 					  	}
 					  	break;
@@ -200,7 +229,7 @@ int main(int argc, char * argv[]) {
 					}
 				}	
 				else{
-					cerr << "Found this connection";
+					cerr << "Connection found in connection list.\n";
 
 					unsigned int state;
 					state = list_iterator->state.GetState();
@@ -265,6 +294,8 @@ void createPacket(ConnectionToStateMapping<TCPState> &CTSM, int TCPHeaderType, i
 			break;
 		} 
 		case 2: { //ACK
+			SET_ACK(flags);
+			cerr << "Received ACK packet\n";
 			break;
 		}
 		case 3: { //SYNACK
