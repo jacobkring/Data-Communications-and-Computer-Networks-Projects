@@ -35,6 +35,7 @@ using namespace std;
 // };
 
 void createPacket(ConnectionToStateMapping<TCPState> &CTSM, int TCPHeaderType, int size, bool is_timeout, Packet &packet);
+int SendData(const MinetHandle &mux, const MinetHandle &sock, ConnectionToStateMapping<TCPState> &theCTSM, Buffer data);
 
 
 int main(int argc, char * argv[]) {
@@ -100,7 +101,7 @@ int main(int argc, char * argv[]) {
 
 		    	rcv_packet.ExtractHeaderFromPayload<TCPHeader>(TCPHeader::EstimateTCPHeaderLength(rcv_packet));
 		    	tcp_header = rcv_packet.FindHeader(Headers::TCPHeader);
-		    	ip_header = rcv_packet.FindHeader(Headers::TCPHeader);
+		    	ip_header = rcv_packet.FindHeader(Headers::IPHeader);
 
 		    	if(!tcp_header.IsCorrectChecksum(rcv_packet)){
 		    		cerr << "Checksum didn't match!\n";
@@ -133,6 +134,8 @@ int main(int argc, char * argv[]) {
 		    		cerr << "Connection not found in connection list.\n";
 		    	}
 
+		    	state = list_iterator->state.GetState();
+
 		    	switch(state){
 		    		case LISTEN:{
 		    			if(IS_SYN(flags)){
@@ -145,13 +148,13 @@ int main(int argc, char * argv[]) {
 		    				list_iterator->bTmrActive = true;
 		    				list_iterator->state.SetState(SYN_RCVD);
 
-		    				createPacket(*list_iterator, 1, 0, false, snd_packet);
+		    				createPacket(*list_iterator, 3, 0, false, snd_packet);
 		    				MinetSend(mux, snd_packet);
 		    				sleep(2);
 		    				MinetSend(mux, snd_packet);
 
-		    			}
-		    		} break;
+		    			} break;
+		    		}
 		    		case SYN_RCVD:{
 		    			cerr << "Received SYN, sending SYN_ACK...\n";
 		    			list_iterator->state.SetState(ESTABLISHED);
@@ -162,10 +165,11 @@ int main(int argc, char * argv[]) {
 		    			writer = new SockRequestResponse(WRITE, list_iterator->connection, rcv_buffer, 0, EOK);
 		    			MinetSend(sock, *writer);
 		    			delete writer;
-
-		    		} break;
+		    			break;
+		    		}
 
 		    		case SYN_SENT:{
+		    			cerr << "Syn sent but did not receive synack\n";
 		    			if(IS_ACK(flags) && IS_SYN(flags)){
 		    				cerr << "Sent SYN, received SYN_ACK...\n";
 		    				list_iterator->state.SetLastRecvd(seq + 1);
@@ -179,6 +183,13 @@ int main(int argc, char * argv[]) {
 		    				list_iterator->state.SetState(ESTABLISHED);
 		    				SockRequestResponse writer(WRITE, list_iterator->connection, rcv_buffer, 0, EOK);
 		    				MinetSend(sock, writer);
+		    			} break;
+		    		}
+
+		    		case ESTABLISHED: {
+		    			// As the client, the server has acked our packet
+		    			if(IS_ACK(flags)){
+		    				cerr << "Last packet has been ACKed\n...";
 		    			}
 		    		}
 		    	}
@@ -190,6 +201,7 @@ int main(int argc, char * argv[]) {
 				MinetSendToMonitor(MinetMonitoringEvent("Socket request or response has arrived.\n"));
 				SockRequestResponse request;
 				SockRequestResponse response;
+				Packet snd_packet;
 				MinetReceive(sock,request);
 
 				ConnectionList<TCPState>::iterator list_iterator = clist.FindMatching(request.connection);
@@ -197,15 +209,33 @@ int main(int argc, char * argv[]) {
 				if(list_iterator == clist.end()){
 
 					switch(request.type){
-						case CONNECT:
+						case CONNECT:{
 							cerr << "CONNECT\n";
-							//TCPState client(1, SYN_SENT, 10);
+							TCPState tcp_client(rand() % 500, SYN_SENT, 5);
+							ConnectionToStateMapping<TCPState> mapping(request.connection, Time()+2, tcp_client, true);
+							clist.push_back(mapping);
+
+							createPacket(mapping, 1, 0, false, snd_packet);
+							MinetSend(mux, snd_packet);
+							sleep(3);
+							MinetSend(mux, snd_packet);
+
+							response.type = STATUS;
+							response.connection = request.connection;
+							response.error = EOK;
+							response.bytes = 0;
+							MinetSend(sock, response);
+
+							cerr << "End CONNECT!\n";
+
+							break;
+						}
 						case ACCEPT: {
 
-							TCPState tcp_server(1, LISTEN, 10);
+							TCPState tcp_server(rand() % 500, LISTEN, 5);
 							//cerr << "Tcp_server started\n";
-							ConnectionToStateMapping<TCPState> map(request.connection, Time(), tcp_server, false);
-							clist.push_back(map);
+							ConnectionToStateMapping<TCPState> mapping(request.connection, Time(), tcp_server, false);
+							clist.push_back(mapping);
 							//cerr << "Connection to state mapped and added to connection state list\n";
 							response.type=STATUS;
 		    				response.connection=request.connection;
@@ -214,11 +244,16 @@ int main(int argc, char * argv[]) {
 						    response.error=EOK;
 						    MinetSend(sock,response);
 						    cerr << "ACCEPT...\n";
-					    
+					    	break;
 					  	}
-					  	break;
-						case WRITE:
+						case WRITE: {
 							cerr << "WRITE\n";
+							response.connection = request.connection;
+							response.error = ENOMATCH;
+							response.bytes = 0;
+							response.type = STATUS;
+							MinetSend(sock, response);
+						}
 						case FORWARD:
 							cerr << "FORWARD\n";
 						case CLOSE:
@@ -238,21 +273,52 @@ int main(int argc, char * argv[]) {
 			    			break;
 			    		case ACCEPT:
 			    			break;
-			    		case WRITE:
-			    			break;
+			    		case WRITE: {
+			    			cerr << "WRITE\n";
+							if (state == ESTABLISHED) {
+								if(!(list_iterator->state.SendBuffer.GetSize()+request.data.GetSize() > list_iterator->state.TCP_BUFFER_SIZE)) {
+									// If there is enough space in the buffer
+									//list_iterator->state.SendBuffer.AddBack(request.data); // Push data to the back of the state
+								
+								
+									Buffer copy_buffer = request.data; // Dupe the buffer
+									
+									
+									int return_value = SendData(mux, sock, *list_iterator, copy_buffer);
+									
+									if (return_value == 0) {
+										response.type = STATUS;
+										response.connection = request.connection;
+										response.bytes = copy_buffer.GetSize();
+										response.error = EOK;
+										MinetSend(sock, response);
+									}
+									
+								}
+								else {
+									// If there isn't enough space in the buffer, send the appropriate error
+									response.type = STATUS;
+									response.connection = request.connection;
+									response.bytes = 0;
+									response.error = EBUF_SPACE;
+									MinetSend(sock, response);
+								}
+							}
+						}	
+							break;
 			    		case FORWARD:
 			    			break;
 			    		case CLOSE:
 			    			break;
 			    		case STATUS:{
-			    // 			if (my_state == ESTABLISHED) {
-							// 	unsigned datasend = request.bytes; // number of bytes send
-							// 	list_iterator->state.RecvBuffer.Erase(0,datasend);
-							// 	if(0 != CL_iterator->state.RecvBuffer.GetSize()) { // Didn't finish writing
-							// 		SockRequestResponse write (WRITE, list_iterator->connection, list_iterator->state.RecvBuffer, list_iterator->state.RecvBuffer.GetSize(), EOK);
-							// 		MinetSend(sock, write);
-							// 	}
-							// }
+			    			if (state == ESTABLISHED) {
+								unsigned datasend = request.bytes; // number of bytes send
+								list_iterator->state.RecvBuffer.Erase(0,datasend);
+								if(0 != list_iterator->state.RecvBuffer.GetSize()) { // Didn't finish writing
+									SockRequestResponse writer (WRITE, list_iterator->connection, list_iterator->state.RecvBuffer, list_iterator->state.RecvBuffer.GetSize(), EOK);
+									MinetSend(sock, writer);
+								}
+							}
 						break;
 			    		}
 		    		}
@@ -274,8 +340,9 @@ int main(int argc, char * argv[]) {
 
 void createPacket(ConnectionToStateMapping<TCPState> &CTSM, int TCPHeaderType, int size, bool is_timeout, Packet &packet){
 
+	cerr << "Creating a packet...\n";
 	int pkt_size = size + IP_HEADER_BASE_LENGTH + TCP_HEADER_BASE_LENGTH;
-	unsigned char flags;
+	unsigned char flags = 0;
 	IPHeader ip_header;
 	TCPHeader tcp_header;
 
@@ -286,22 +353,33 @@ void createPacket(ConnectionToStateMapping<TCPState> &CTSM, int TCPHeaderType, i
 	ip_header.SetTotalLength(pkt_size);
 	packet.PushFrontHeader(ip_header);
 
+	tcp_header.SetSourcePort(CTSM.connection.srcport, packet);
+	tcp_header.SetDestPort(CTSM.connection.destport, packet);
+	tcp_header.SetHeaderLen(5, packet);
+	tcp_header.SetAckNum(CTSM.state.GetLastRecvd(), packet);
+	tcp_header.SetWinSize(CTSM.state.GetRwnd(), packet);
+	tcp_header.SetUrgentPtr(0, packet);
+
 	//What kind of packet is it?
 	switch(TCPHeaderType) {
 		case 1: { //SYN
 			SET_SYN(flags);
-			cerr << "Received SYN packet\n";
+			cerr << "Creating a SYN packet\n";
 			break;
 		} 
 		case 2: { //ACK
 			SET_ACK(flags);
-			cerr << "Received ACK packet\n";
+			cerr << "Creating an ACK packet\n";
 			break;
 		}
 		case 3: { //SYNACK
+			cerr << "Creating a SYN_ACK packet\n";
+			SET_SYN(flags);
+			SET_ACK(flags);
 			break;
 		}
 		case 4: { //PSACK
+			cerr << "HERE\n";
 
 		}
 		case 5: { //FIN
@@ -314,12 +392,7 @@ void createPacket(ConnectionToStateMapping<TCPState> &CTSM, int TCPHeaderType, i
 			break;
 		}
 	}
-	tcp_header.SetHeaderLen(TCP_HEADER_BASE_LENGTH, packet);
-	tcp_header.SetAckNum(CTSM.state.GetLastRecvd(), packet);
-	tcp_header.SetSourcePort(CTSM.connection.srcport, packet);
-	tcp_header.SetDestPort(CTSM.connection.destport, packet);
-	tcp_header.SetWinSize(CTSM.state.GetRwnd(), packet);
-	tcp_header.SetUrgentPtr(0, packet);
+
 	tcp_header.SetFlags(flags, packet);
 	
 	if(is_timeout) {
@@ -331,5 +404,33 @@ void createPacket(ConnectionToStateMapping<TCPState> &CTSM, int TCPHeaderType, i
 
 	tcp_header.RecomputeChecksum(packet);
 	packet.PushBackHeader(tcp_header);
+
+	cerr << "Finished creating the packet!\n";
+}
+
+int SendData(const MinetHandle &mux, const MinetHandle &sock, ConnectionToStateMapping<TCPState> &theCTSM, Buffer data) {
+                                        /*CL_iterator->state.SendBuffer.AddBack(Buffer(data.c_str(), data.length()));
+                                        packet_tosend = CL_iterator->state.SendBuffer;
+                                        ForgePacket (packet_tosend, *CL_iterator, HEADERTYPE_PSHACK, data.length(), false);
+                                        MinetSend(mux, packet_tosend);*/
+        cerr << "===============Start SendData!===============\n" << endl;
+		Packet p;
+        theCTSM.state.SendBuffer.AddBack(data);
+        unsigned int bytesLeft = data.GetSize();
+        //theCTSM.state.SetLastSent(theCTSM.state.GetLastAcked());
+		//theCTSM.state.last_sent = theCTSM.state.last_sent + 1;
+        while(bytesLeft != 0) {
+                unsigned int bytesToSend = min(bytesLeft, TCP_MAXIMUM_SEGMENT_SIZE);
+                p = theCTSM.state.SendBuffer.Extract(0, bytesToSend);
+                createPacket (theCTSM, 4, bytesToSend, false, p);
+                MinetSend(mux, p);
+                
+                //theCTSM.state.SetLastSent(theCTSM.state.GetLastSent()+bytesToSend);
+                theCTSM.state.last_sent = theCTSM.state.last_sent + bytesToSend;
+				
+                bytesLeft -= bytesToSend;
+        }
+	cerr << "===============End SendData!===============\n" << endl;
+	return bytesLeft;
 }
 
