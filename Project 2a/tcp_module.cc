@@ -379,7 +379,7 @@ void createPacket(ConnectionToStateMapping<TCPState> &CTSM, int TCPHeaderType, i
 			break;
 		}
 		case 4: { //PSACK
-			cerr << "HERE\n";
+			cerr << "Creating a PSH_ACK packet. Need to write this case still!\n";
 
 		}
 		case 5: { //FIN
@@ -413,7 +413,7 @@ int SendData(const MinetHandle &mux, const MinetHandle &sock, ConnectionToStateM
                                         packet_tosend = CL_iterator->state.SendBuffer;
                                         ForgePacket (packet_tosend, *CL_iterator, HEADERTYPE_PSHACK, data.length(), false);
                                         MinetSend(mux, packet_tosend);*/
-        cerr << "===============Start SendData!===============\n" << endl;
+        cerr << "Sending the data...\n";
 		Packet p;
         theCTSM.state.SendBuffer.AddBack(data);
         unsigned int bytesLeft = data.GetSize();
@@ -430,7 +430,7 @@ int SendData(const MinetHandle &mux, const MinetHandle &sock, ConnectionToStateM
 				
                 bytesLeft -= bytesToSend;
         }
-	cerr << "===============End SendData!===============\n" << endl;
+	cerr << "Done sending the data!\n";
 	return bytesLeft;
 }
 
