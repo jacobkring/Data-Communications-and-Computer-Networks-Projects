@@ -187,10 +187,39 @@ int main(int argc, char * argv[]) {
 		    		}
 
 		    		case ESTABLISHED: {
-		    			// As the client, the server has acked our packet
-		    			if(IS_ACK(flags)){
-		    				cerr << "Last packet has been ACKed\n...";
+		    			if(IS_ACK(flags) && IS_FIN(flags)){
+		    				cerr << "Received FIN_ACK\n";
+		    				list_iterator->state.SetState(CLOSE_WAIT);
+		    				list_iterator->state.SetSendRwnd(window);
+		    				list_iterator->state.last_recvd = seq + 1;
+		    				list_iterator->state.last_acked = ack;
+
+		    				createPacket(*list_iterator, 6, 0, false, snd_packet);
+		    				MinetSend(mux, snd_packet);
 		    			}
+		    			else if(IS_ACK(flags) && IS_PSH(flags)){
+		    				cerr << "Received PSH_ACK\n";
+		    				list_iterator->state.SetSendRwnd(window);
+		    				list_iterator->state.last_recvd = seq + rcv_buffer.GetSize();
+		    				list_iterator->state.last_acked = ack;
+		    				list_iterator->state.RecvBuffer.AddBack(rcv_buffer);
+		    				
+		    				SockRequestResponse writer (WRITE, list_iterator->connection, list_iterator->state.RecvBuffer, list_iterator->state.RecvBuffer.GetSize(), EOK);
+		    				MinetSend(sock, writer);
+
+		    				createPacket(*list_iterator, 2, 0, false, snd_packet);
+		    				MinetSend(mux, snd_packet);
+		    			}
+		    			else if(IS_ACK(flags)){
+		    				cerr << "Last packet has been ACKed\n";
+		    				list_iterator->state.SetLastRecvd((unsigned int)seq);
+		    				list_iterator->state.last_acked = ack;
+		    			}
+		    			break;
+		    		}
+
+		    		case FIN_WAIT1: {
+		    			break;
 		    		}
 		    	}
 		    }
@@ -277,13 +306,9 @@ int main(int argc, char * argv[]) {
 			    			cerr << "WRITE\n";
 							if (state == ESTABLISHED) {
 								if(!(list_iterator->state.SendBuffer.GetSize()+request.data.GetSize() > list_iterator->state.TCP_BUFFER_SIZE)) {
-									// If there is enough space in the buffer
-									//list_iterator->state.SendBuffer.AddBack(request.data); // Push data to the back of the state
-								
-								
-									Buffer copy_buffer = request.data; // Dupe the buffer
 									
-									
+									//There's room in the buffer!
+									Buffer copy_buffer = request.data;
 									int return_value = SendData(mux, sock, *list_iterator, copy_buffer);
 									
 									if (return_value == 0) {
@@ -328,7 +353,6 @@ int main(int argc, char * argv[]) {
 
 		if (event.eventtype == MinetEvent::Timeout) {
 			    // timeout ! probably need to resend some packets
-				//cerr << "Timeout...\n";
 		}
 
     }
@@ -415,27 +439,19 @@ void createPacket(ConnectionToStateMapping<TCPState> &CTSM, int TCPHeaderType, i
 }
 
 int SendData(const MinetHandle &mux, const MinetHandle &sock, ConnectionToStateMapping<TCPState> &theCTSM, Buffer data) {
-                                        /*CL_iterator->state.SendBuffer.AddBack(Buffer(data.c_str(), data.length()));
-                                        packet_tosend = CL_iterator->state.SendBuffer;
-                                        ForgePacket (packet_tosend, *CL_iterator, HEADERTYPE_PSHACK, data.length(), false);
-                                        MinetSend(mux, packet_tosend);*/
-        cerr << "Sending the data...\n";
-		Packet p;
-        theCTSM.state.SendBuffer.AddBack(data);
-        unsigned int bytesLeft = data.GetSize();
-        //theCTSM.state.SetLastSent(theCTSM.state.GetLastAcked());
-		//theCTSM.state.last_sent = theCTSM.state.last_sent + 1;
-        while(bytesLeft != 0) {
-                unsigned int bytesToSend = min(bytesLeft, TCP_MAXIMUM_SEGMENT_SIZE);
-                p = theCTSM.state.SendBuffer.Extract(0, bytesToSend);
-                createPacket (theCTSM, 4, bytesToSend, false, p);
-                MinetSend(mux, p);
-                
-                //theCTSM.state.SetLastSent(theCTSM.state.GetLastSent()+bytesToSend);
-                theCTSM.state.last_sent = theCTSM.state.last_sent + bytesToSend;
-				
-                bytesLeft -= bytesToSend;
-        }
+
+    cerr << "Sending the data...\n";
+	Packet p;
+    theCTSM.state.SendBuffer.AddBack(data);
+    unsigned int bytesLeft = data.GetSize();
+    while(bytesLeft != 0) {
+            unsigned int bytesToSend = min(bytesLeft, TCP_MAXIMUM_SEGMENT_SIZE);
+            p = theCTSM.state.SendBuffer.Extract(0, bytesToSend);
+            createPacket (theCTSM, 4, bytesToSend, false, p);
+            MinetSend(mux, p);
+            theCTSM.state.last_sent = theCTSM.state.last_sent + bytesToSend;
+            bytesLeft -= bytesToSend;
+    }
 	cerr << "Done sending the data!\n";
 	return bytesLeft;
 }
