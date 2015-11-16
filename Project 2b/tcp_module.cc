@@ -122,7 +122,15 @@ int main(int argc, char * argv[]) {
 		    	tcp_header.GetWinSize(window);
 		    	tcp_header.GetHeaderLen(tcpheader_len);
 		    	tcp_header.GetUrgentPtr(isUrg);
+			int data_length;
+			data_length = total_len - 4*(ipheader_len + tcpheader_len);
+			printf("%d\n", tcpheader_len);
+			printf("%d\n", ipheader_len);
 
+			
+			//cerr << "tcp header length: " << tcpheader_len << endl;
+			//			cerr << "ip header length: " << ipheader_len << endl;
+			cerr << "total length: " << total_len <<  endl;
 		    	cerr << "This is the connection received: \n" << c << endl;
 
 
@@ -200,7 +208,7 @@ int main(int argc, char * argv[]) {
 		    			else if(IS_ACK(flags) && IS_PSH(flags)){
 		    				cerr << "Received PSH_ACK\n";
 		    				list_iterator->state.SetSendRwnd(window);
-		    				list_iterator->state.last_recvd = seq + rcv_buffer.GetSize();
+		    				list_iterator->state.last_recvd = seq + data_length;
 		    				list_iterator->state.last_acked = ack;
 		    				list_iterator->state.RecvBuffer.AddBack(rcv_buffer);
 		    				
@@ -237,6 +245,7 @@ int main(int argc, char * argv[]) {
 
 				if(list_iterator == clist.end()){
 
+					srand(time(NULL));
 					switch(request.type){
 						case CONNECT:{
 							cerr << "CONNECT\n";
@@ -406,15 +415,18 @@ void createPacket(ConnectionToStateMapping<TCPState> &CTSM, int TCPHeaderType, i
 			cerr << "Creating a PSH_ACK packet.\n";
 			SET_PSH(flags);
 			SET_ACK(flags);
+			break;
 		}
 		case 5: { //FIN
 			cerr << "Creating a FIN packet.\n";
 			SET_FIN(flags);
+			break;
 		}
 		case 6: { //FINACK
 			cerr << "Creating a FIN_ACK packet.\n";
 			SET_FIN(flags);
 			SET_ACK(flags);
+			break;
 		}
 		case 7: { //RST
 			cerr << "Creating a RST packet.\n";
@@ -429,6 +441,7 @@ void createPacket(ConnectionToStateMapping<TCPState> &CTSM, int TCPHeaderType, i
 		tcp_header.SetSeqNum(CTSM.state.GetLastSent() + 1, packet);
 	}
 	else {
+		cerr << CTSM.state.GetLastSent() << endl;
 		tcp_header.SetSeqNum(CTSM.state.GetLastSent(), packet);
 	}
 
