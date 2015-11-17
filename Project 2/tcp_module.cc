@@ -202,7 +202,7 @@ int main(int argc, char * argv[]) {
 
                     case ESTABLISHED: {
                     	cerr <<"state established" << endl;
-                        if(IS_ACK(flags) && IS_FIN(flags)){
+                        if(IS_FIN(flags)){
                             cerr << "Received FIN_ACK\n";
                             list_iterator->state.SetState(LAST_ACK);
                             list_iterator->state.SetSendRwnd(window);
@@ -240,15 +240,20 @@ int main(int argc, char * argv[]) {
 
                     case FIN_WAIT1: {
                         if(IS_FIN(flags) && IS_ACK(flags)) {
-                            cerr << "FIN_WAIT1\n" << endl;
-                            list_iterator->state.SetState(FIN_WAIT2);
+                            cerr << "ClOSING\n" << endl;
+                            list_iterator->state.SetState(CLOSING);
                             list_iterator->state.SetSendRwnd(window);
                             list_iterator->state.last_recvd = seq + 1;
-                            list_iterator->state.last_acked = ack;        
-                            
+                            list_iterator->state.last_acked = ack;
+
+
                             //Make the ACK packet
                             createPacket(*list_iterator, 2, 0, false, snd_packet);
                             MinetSend(mux, snd_packet);
+
+                        }
+                        else if(IS_ACK(flags)){
+                            list_iterator->state.SetState(FIN_WAIT2);
                         }
                         break;
                     }
@@ -256,44 +261,36 @@ int main(int argc, char * argv[]) {
                     case FIN_WAIT2: {
                         if(IS_ACK(flags)) {
                             cerr << "FIN_WAIT2\n" << endl;
+                            list_iterator->state.SetState(TIME_WAIT);
+                        }
+                        else if(IS_ACK(flags) && IS_FIN(flags)){
+                            cerr << "FIN_WAIT2\n" << endl;
+                            list_iterator->state.SetState(TIME_WAIT);
                             list_iterator->state.SetSendRwnd(window);
                             list_iterator->state.last_recvd = seq + 1;
-                            list_iterator->state.last_acked = ack;
-
-                            //Make the ACK packet
-                            createPacket(*list_iterator, 2, 0, false, snd_packet);
-                            MinetSend(mux, snd_packet);
-
-                            SockRequestResponse goodbye;
-                            goodbye.type = CLOSE;
-                            goodbye.connection = list_iterator->connection;
-                            goodbye.bytes = 0;
-                            goodbye.error = EOK;
-
-                            MinetSend(sock, goodbye);
-
-                            clist.erase(list_iterator);
-                        }
-                        break;
-                    }
-                    case TIME_WAIT: {
-
-                    }
-                    case CLOSE_WAIT: {
-                        if(IS_ACK(flags)) {
-                            cerr << "CLOSE_WAIT\n" << endl;
-                            SockRequestResponse goodbye;
-                            goodbye.type = CLOSE;
-                            goodbye.connection = list_iterator->connection;
-                            goodbye.bytes = 0;
-                            goodbye.error = EOK;
-
-                            MinetSend(sock, goodbye);
+                            list_iterator->state.last_acked = ack;        
                             
-
-                            clist.erase(list_iterator);
+                            //Make the ACK packet
+                            createPacket(*list_iterator, 6, 0, false, snd_packet);
+                            MinetSend(mux, snd_packet);
+                            Packet snd_packet2;
+                            createPacket(*list_iterator, 2, 0, false, snd_packet2);
+                            MinetSend(mux, snd_packet2);
                         }
                         break;
+                    }
+                    case CLOSING:{
+
+                            SockRequestResponse goodbye;
+                            goodbye.type = CLOSE;
+                            goodbye.connection = list_iterator->connection;
+                            goodbye.bytes = 0;
+                            goodbye.error = EOK;
+
+                            MinetSend(sock, goodbye);
+
+                            clist.erase(list_iterator);
+                            break;
                     }
                     case LAST_ACK: {
                          if(IS_ACK(flags)) {
@@ -440,7 +437,7 @@ int main(int argc, char * argv[]) {
                                 list_iterator->state.last_acked = list_iterator->state.last_acked+1;
                                 
                                 // Need to make an ACK packet
-                                createPacket(*list_iterator, 6, 0, false, snd_packet);
+                                createPacket(*list_iterator, 5, 0, false, snd_packet);
                                 MinetSend(mux, snd_packet);
                             
                                 response.type = STATUS;
