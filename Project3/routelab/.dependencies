@@ -1,0 +1,17 @@
+node.o: node.cc node.h table.h messages.h link.h context.h topology.h \
+ linkstate.h eventqueue.h event.h error.h distancevector.h
+link.o: link.cc link.h
+table.o: table.cc table.h
+messages.o: messages.cc messages.h node.h table.h link.h
+topology.o: topology.cc topology.h link.h linkstate.h node.h table.h \
+ messages.h
+event.o: event.cc event.h messages.h node.h table.h link.h topology.h \
+ linkstate.h context.h eventqueue.h
+eventqueue.o: eventqueue.cc eventqueue.h event.h messages.h node.h \
+ table.h link.h topology.h linkstate.h
+context.o: context.cc context.h topology.h link.h linkstate.h node.h \
+ table.h messages.h eventqueue.h event.h
+distancevector.o: distancevector.cc distancevector.h node.h table.h \
+ messages.h link.h
+routesim.o: routesim.cc context.h topology.h link.h linkstate.h node.h \
+ table.h messages.h eventqueue.h event.h
