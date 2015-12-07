@@ -19,6 +19,7 @@ DistanceVector::~DistanceVector() {}
 
 
 /** Write the following functions.  They currently have dummy implementations **/
+
 void DistanceVector::LinkHasBeenUpdated(Link* l) {
     cerr << *this << ": Link Update: " << *l << endl;
     SendToNeighbors(new RoutingMessage());
@@ -33,11 +34,21 @@ void DistanceVector::TimeOut() {
 }
 
 Node* DistanceVector::GetNextHop(Node *destination) { 
+    unsigned n = routing_table.hops[(*destination).GetNumber()];
+    deque<Node*> mydeque = *GetNeighbors();
+    deque<Node*>::iterator i = mydeque.begin();
+    while(i != mydeque.end()){
+        if((*i).GetNumber() == n){
+            Node nextHop = new Node(i);
+            return nextHop;
+        }
+        i++;
+    }
     return NULL;
 }
 
 Table* DistanceVector::GetRoutingTable() {
-    return NULL;
+    return Table *copy = new Table(routing_table);
 }
 
 ostream & DistanceVector::Print(ostream &os) const { 
