@@ -109,33 +109,6 @@ ostream & Table::Print(ostream &os) const
   for(map <int, int>::const_iterator iter = this->hops.begin(); iter != this->hops.end(); iter++){
   	os << "to get from this node to " << iter->first << " hop to " << iter->second << endl;
   }
-}
-
-int Table::UpdateLink(const Link *l){
-  int src = l->GetSrc();
-  int dest = l->GetDest();
-
-  int new_age = ++GetTopo()[src][dest].age;
-  GetTopo()[src][dest].age = new_age;
-  GetTopo()[src][dest].cost = l->GetLatency();
-
-  return new_age;
-}
-
-map < int, map < int, TopoLink > > Table::GetTopo(){
-  return topo;
-}
-
-void Table::SetTopo(int source, int destination, int age, int cost){
-  topo[source][destination].age = age;
-  topo[source][destination].cost = cost;
-}
-#endif
-
-#if defined(DISTANCEVECTOR)
-
-ostream & Table::Print(ostream &os) const
-{
   os << "DistanceVector Table()";
   return os;
 }

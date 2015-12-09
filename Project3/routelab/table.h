@@ -31,8 +31,8 @@ struct TopoLink {
 // Students should write this class
 class Table {
     private:
-        map < int, map < int, TopoLink > > topo;
     public:
+        map < int, map < int, TopoLink > > topo;
         Table();
         Table(const Table &);
         Table & operator=(const Table &);
@@ -49,6 +49,12 @@ class Table {
         #endif
 
         #if defined(DISTANCEVECTOR)
+        // distance vector to each node
+        map<int, TopoLink> distance;
+        // length between node and neighbor nodes
+        map<int, TopoLink> neighbors;
+        // record of next hop
+        map<int, int> hops;
         #endif
 };
 
