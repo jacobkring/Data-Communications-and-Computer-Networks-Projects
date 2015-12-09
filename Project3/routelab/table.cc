@@ -11,6 +11,7 @@ Table::Table(const Table & rhs) {
 Table & Table::operator=(const Table & rhs) {
     /* For now,  Change if you add more data members to the class */
     topo = rhs.topo;
+    table = rhs.table;
 
     return *this;
 }
@@ -32,6 +33,16 @@ ostream & Table::Print(ostream &os) const
 #endif
 
 #if defined(DISTANCEVECTOR)
+
+bool Table::WriteToTable(int dest, int next, double distance){
+  while(table.size() <= destination){
+  }
+}
+
+// void Table::SetTopo(int number, int other, TopoLink dv){
+//   topo[number] = map< other, dv >;
+// }
+
 ostream & Table::Print(ostream &os) const
 {
 	// Distance Vector
@@ -55,6 +66,11 @@ ostream & Table::Print(ostream &os) const
   // prints out hops
   for(map <int, int>::const_iterator iter = this->hops.begin(); iter != this->hops.end(); iter++){
   	os << "next hop " << iter->first << " is " << iter->second << endl;
+  }
+
+  //print stuff
+  for(map< int, map< int, TopoLink > >::const_iterator iter = this->topo.begin(); iter != this->topo.end(); iter++){
+
   }
 
   os << endl;

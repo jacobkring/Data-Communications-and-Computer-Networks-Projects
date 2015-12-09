@@ -2,6 +2,7 @@
 #define _distancevector
 
 #include "node.h"
+#include "table.h"
 
 class DistanceVector: public Node {
     private:
@@ -22,6 +23,7 @@ class DistanceVector: public Node {
         ostream & Print(ostream & os) const;
 
         // Anything else
+        void update_table(Table * t);
 };
 
 inline ostream & operator<<(ostream & os, const DistanceVector & n) {
