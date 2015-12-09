@@ -54,7 +54,6 @@ void DistanceVector::ProcessIncomingRoutingMessage(RoutingMessage *m) {
     if(calculateDistance())
         SendToNeighbors(new RoutingMessage(number, routing_table.distance));
     
-    
 }
 
 void DistanceVector::TimeOut() {
@@ -62,7 +61,6 @@ void DistanceVector::TimeOut() {
 }
 
 Node* DistanceVector::GetNextHop(Node *destination) { 
-
     cerr << "Next hop from current node " << number << " to destination " << (*destination).GetNumber() << "\n";
     unsigned n = routing_table.hops[(*destination).GetNumber()];
     cerr << "Next hop is " << n << "\n";

@@ -2,6 +2,7 @@
 #define _distancevector
 
 #include "node.h"
+#include "table.h"
 
 class DistanceVector: public Node {
     private:
