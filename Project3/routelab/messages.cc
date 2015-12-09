@@ -26,6 +26,13 @@ ostream &RoutingMessage::Print(ostream &os) const
     os << "LinkState RoutingMessage()";
     return os;
 }
+
+RoutingMessage::RoutingMessage(int age, int source, int destination, int latency){
+	age = age;
+	src = source;
+	dest = destination;
+	lat = latency;
+}
 #endif
 
 #if defined(DISTANCEVECTOR)

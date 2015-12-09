@@ -4,9 +4,11 @@
 #include <iostream>
 #include <map>
 #include <link.h>
+#include "link.h"
 
 
 using namespace std;
+class RoutingMessage;
 
 struct TopoLink {
     TopoLink(): cost(-1), age(0) {}
@@ -30,7 +32,6 @@ struct TopoLink {
 class Table {
     private:
         map < int, map < int, TopoLink > > topo;
-        vector< vector<double> > table;
     public:
         Table();
         Table(const Table &);
@@ -41,23 +42,13 @@ class Table {
         // Anything else you need
 
         #if defined(LINKSTATE)
-        asdfasd
+        int UpdateLink(const Link *l);
+        bool UpdateTable(const RoutingMessage *m);
+        map < int, map < int, TopoLink > > GetTopo();
+        void SetTopo(int source, int dest, int age, int cost);
         #endif
 
         #if defined(DISTANCEVECTOR)
-
-        // distance vector to each node
-        map <int, TopoLink> distance;
-        // length between node and neighbor nodes
-        map <int, TopoLink> neighbors;
-        // record of next hop
-        map <int, int> hops;
-
-        bool WriteToTable(int source, int next, double distance);
-        double ReadFromTable(int source, int next);
-        int GetNext(int distance);
-        bool CheckLatency(int source, int next, double distance);
-
         #endif
 };
 

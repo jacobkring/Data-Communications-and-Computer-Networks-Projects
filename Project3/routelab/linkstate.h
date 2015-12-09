@@ -2,6 +2,7 @@
 #define _linkstate
 
 #include "node.h"
+#include <vector>
 
 class LinkState: public Node {
     private:
@@ -22,6 +23,7 @@ class LinkState: public Node {
         ostream & Print(ostream & os) const;
 
         // Anything else
+        Node* DjikstraTime(vector<int>, vector<int>, vector<bool>, Node *dest, int num_nodes);
 };
 
 inline ostream & operator<<(ostream & os, const LinkState & n) {
