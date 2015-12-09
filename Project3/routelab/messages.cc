@@ -36,6 +36,10 @@ RoutingMessage::RoutingMessage(int age, int source, int destination, int latency
 #endif
 
 #if defined(DISTANCEVECTOR)
+RoutingMessage::RoutingMessage(int s, map <int,TopoLink> v){
+	sendernode = s;
+	vectors = v;
+}
 ostream &RoutingMessage::Print(ostream &os) const
 {
     os << "DistanceVector RoutingMessage()";

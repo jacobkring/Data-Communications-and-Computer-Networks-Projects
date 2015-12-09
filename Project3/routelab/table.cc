@@ -84,6 +84,55 @@ void Table::SetTopo(int source, int destination, int age, int cost){
 #endif
 
 #if defined(DISTANCEVECTOR)
+ostream & Table::Print(ostream &os) const
+{
+	// Distance Vector
+	/*
+	1. Direction in which router or exit interface should be forwarded
+	2. Distance from its destination
+	*/
+
+  os << "DistanceVector Table()" << endl;
+
+  // prints out distances
+  os << "Distance Vectors:" << endl;
+  for(map <int, TopoLink>::const_iterator iter = this->distance.begin(); iter != this->distance.end(); iter++){
+  	os << "Distance To: " << iter->first << " Cost: "<< iter->second.cost << endl;
+  }
+  // prints out neighbors
+  os <<"\nThis node's neighbors:" << endl;
+  for(map <int, TopoLink>::const_iterator iter = this->neighbors.begin(); iter != this->neighbors.end(); iter++){
+  	os << "Neighbor: " << iter->first << " Cost: " << iter->second.cost <<endl;
+  }
+  // prints out hops
+  os << "\nHops:" << endl;
+  for(map <int, int>::const_iterator iter = this->hops.begin(); iter != this->hops.end(); iter++){
+  	os << "to get from this node to " << iter->first << " hop to " << iter->second << endl;
+  }
+}
+
+int Table::UpdateLink(const Link *l){
+  int src = l->GetSrc();
+  int dest = l->GetDest();
+
+  int new_age = ++GetTopo()[src][dest].age;
+  GetTopo()[src][dest].age = new_age;
+  GetTopo()[src][dest].cost = l->GetLatency();
+
+  return new_age;
+}
+
+map < int, map < int, TopoLink > > Table::GetTopo(){
+  return topo;
+}
+
+void Table::SetTopo(int source, int destination, int age, int cost){
+  topo[source][destination].age = age;
+  topo[source][destination].cost = cost;
+}
+#endif
+
+#if defined(DISTANCEVECTOR)
 
 ostream & Table::Print(ostream &os) const
 {

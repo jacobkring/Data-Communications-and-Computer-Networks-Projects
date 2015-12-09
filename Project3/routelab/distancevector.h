@@ -23,7 +23,7 @@ class DistanceVector: public Node {
         ostream & Print(ostream & os) const;
 
         // Anything else
-        void update_table(Table * t);
+        bool calculateDistance();
 };
 
 inline ostream & operator<<(ostream & os, const DistanceVector & n) {

@@ -24,6 +24,9 @@ struct RoutingMessage {
    	
     #endif
     #if defined(DISTANCEVECTOR)
+        RoutingMessage(int sendnode, map <int, TopoLink> vect);
+        int sendernode;
+        map <int, TopoLink> vectors;
     #endif
 };
 
