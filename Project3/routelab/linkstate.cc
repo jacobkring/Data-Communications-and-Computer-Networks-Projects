@@ -1,4 +1,5 @@
 #include "linkstate.h"
+#include "context.h"
 
 #define INFINITE 9999999
 
@@ -42,12 +43,10 @@ void LinkState::TimeOut() {
 Node* LinkState::GetNextHop(Node *destination) { 
     int num_nodes = (routing_table.GetTopo()).size();
 
-    //We need 3 vectors to store Djikstra's Algorithm values
-    vector<int> dv(num_nodes, INFINITE); //Distance vectors
-    vector<int> pv(num_nodes, INFINITE); //Previous node
-    vector<bool> is_visited(num_nodes, false); //Denotes if node has been visited
+    set<int> nodes;
+    set<int> is_visited;
 
-    return DjikstraTime(dv, pv, is_visited, destination, num_nodes);
+    return DjikstraTime(nodes, is_visited, destination, num_nodes);
     
 }
 
@@ -61,68 +60,172 @@ ostream & LinkState::Print(ostream &os) const {
     return os;
 }
 
-Node* LinkState::DjikstraTime(vector<int> dv, vector<int>pv, vector<bool>is_visited, Node *dest, int num_nodes){
-    //Get the current node
-    int curr_distance = dv[GetNumber()] = 0;
-    is_visited[GetNumber()] = true;
-    pv[GetNumber()] = INFINITE;
+Node* LinkState::DjikstraTime(set<int> nodes, set<int>is_visited, Node *dest, int num_nodes){
+    map<int,int> dist; 
+    map<int,int> prev;
+    map<int, TopoLink> copy;
 
-    //Add the node's neighbors to the table
-    for(map<int, TopoLink>::const_iterator i = routing_table.GetTopo()[GetNumber()].begin(); i != routing_table.GetTopo()[GetNumber()].end(); i++){
-        dv[i->first] = i->second.cost;
-        pv[i->first] = GetNumber();
+    map<int,int>::const_iterator dist_iter;
+    map<int, TopoLink>::const_iterator copy_iter;
+    map<int,int>::const_iterator prev_iter;
+    set<int>::const_iterator node_iter;
+    set<int>::const_iterator visited_iter;
+
+    dist[number] = 0;
+    prev[number] = number;
+    
+    //Set other dist to +INF. Set the previous paths to -(99999). 
+    for (int i=0; i<num_nodes; i++)
+    {
+        if (i !=number)
+        {
+        dist[i] = 99999;
+        prev[i] = -(99999);
+        }
     }
-
-    //Next, find the node with the minimum distance to the current node
-    for(int j = 0; j < num_nodes - 1; j++){
-        int curr_node;
-        int distance = INFINITE;
-        //If new node in dv is not visited and distance is smaller than tracked distance,
-        //Set that node as the current node and that distance as the tracked distance
-        for(int j = 0; j < dv.size(); j++){
-            if(is_visited[j] == false && distance > dv[j]){
-                curr_node = j;
-                distance = dv[j];
+    
+    //Start with this node 
+    copy = routing_table.topo[number];
+    is_visited.insert(number);
+    
+    //Iterate through this node's neighbors
+    for (copy_iter = copy.begin(); copy_iter != copy.end(); copy_iter++)
+    {
+        //Iterator will return the key_value pair. Check whether the key is visited
+        if (is_visited.count(copy_iter->first) < 1)
+        {
+        int v = copy_iter->first; //Get the key (i.e. node number)
+            //D(v) = min( D(w) + c(w,v) , D(v) )
+            if ( (dist[number] + routing_table.topo[number][v].cost) < dist[v])
+            {
+                dist[v] = (dist[number] + routing_table.topo[number][v].cost);
+                prev[v] = number;
+                //Add this neighbor to our queue
+                nodes.insert(v);
             }
+                    
         }
+    
+    }
 
-        //Visit the closest node, set the current distance to the min distance from previous node
-        is_visited[curr_node] = true;
-        if(distance != INFINITE){
-            curr_distance = distance;
-        }
+    while (! nodes.empty() ){
+        int x = GetCurrentSmallest(is_visited, nodes, dist);
+        nodes.erase(x);
+        is_visited.insert(x);
+        copy = routing_table.topo[x];
+        //Repeat the loop that we ran in the initialization step basically
+           for (copy_iter = copy.begin(); copy_iter != copy.end(); copy_iter++)
+            {
+                //Iterator will return the key_value pair. Check the key is visited
+                if (is_visited.count(copy_iter->first) < 1)
+                {
+                int v = copy_iter->first; //Get the key (i.e. node number)
+                    //D(v) = min( D(w) + c(w,v) , D(v) )
+                    if ( (dist[x] + routing_table.topo[x][v].cost) < dist[v])
+                    {
+                        dist[v] = (dist[x] + routing_table.topo[x][v].cost);
+                        prev[v] = x;
+                        //Add this neighbor to our queue
+                        nodes.insert(v);
+                    }
+                            
+                }
 
-        //Add closest node's neighbors to the table
-        for(map<int, TopoLink>::const_iterator i = routing_table.GetTopo()[curr_node].begin(); i != routing_table.GetTopo()[curr_node].end(); i++){
-            if(dv[i->first] > (i->second.cost + curr_distance) && is_visited[i->first] == false){
-                dv[i->first] = i->second.cost + curr_distance;
-                pv[i->first] = curr_node;
             }
-        }
-    }
+                   
+    }  
+        //Djikstra's is done. Distances should hold the distances from this node. Now need to recursively go through previous to figure out proper routing.
+        //Make a new copy of local_map
 
-    //Cycle back through vectors to find the next hop
-    unsigned int curr_node = dest->GetNumber();
-    unsigned int curr_parent = pv[dest->GetNumber()];
-    while(curr_parent != GetNumber()){
-        curr_node = curr_parent;
-        curr_parent = pv[curr_node];
-    }
+        map<int, int> new_map;
+        new_map = CreateNewMap(prev, number);
 
-    unsigned int desired_node_number = dest->GetNumber();
-    unsigned int desired_node_parent = pv[desired_node_number];
-    while(desired_node_parent != GetNumber()){
-        desired_node_number = desired_node_parent;
-        desired_node_parent = pv[desired_node_number];
-    }
-
-    //Find the node to return
-    deque<Node*> *neighbors = this->GetNeighbors();
-    for(deque<Node*>::const_iterator i = neighbors->begin(); i != neighbors->end(); i++){
-        if(Node(curr_node, 0, 0, 0).Matches(*i)){
-            return new Node(**i);
-        }
-    }
-
-    return NULL;
+        routing_table.linkstate_map = new_map;
+        int y= dest->GetNumber();
+        
+        Node* target = new Node(new_map[y], NULL, 0, 0);
+        Node* result = context->FindMatchingNode(const_cast<Node *>(target));
+        return result;        
 }
+
+map<int, int> LinkState::CreateNewMap(map<int,int> prevpaths, int node_number)
+{
+    map<int, int> result;
+    map<int, int>::const_iterator prevpaths_it; 
+    int errorcounter = 0;
+    int destination_node;
+    int current_previous;
+    int old_previous;
+    for (prevpaths_it = prevpaths.begin(); prevpaths_it != prevpaths.end(); prevpaths_it++)
+    {
+       // cout<<"For loop iteration!\n";
+       //The key to the previous vector is the node which has the value as its previous 
+       destination_node = prevpaths_it->first; 
+       //The value is the last previous node calculated during Djikstra's
+       old_previous = prevpaths_it->second;
+     
+       if (old_previous == node_number)
+            result[destination_node] = destination_node; //Directly routing there is fastest
+       
+       else
+       {
+        //     cout <<"Current destination_node:" << destination_node << "\n";
+        //     cout <<"Current current_previous:" << current_previous << "\n";
+        // cout <<"Current old_previous:" << old_previous <<"\n";
+            current_previous = prevpaths[old_previous];
+            while (current_previous != node_number)
+            {
+                old_previous = current_previous;
+                current_previous = prevpaths[current_previous];            
+                errorcounter++;
+                if (errorcounter <=10)
+                  {
+                  // cout <<"End of while loop:\n";
+                  // cout <<"Node_number: " << node_number << "\n";
+              //     cout <<"Now current_previous is:" << current_previous << "\n";
+              //     cout <<"Now old_previous is:" << old_previous << "\n";
+                  }
+            }
+            result[destination_node] = old_previous;
+       }
+    
+    }
+
+    return result;
+}
+
+int LinkState::GetCurrentSmallest(set<int> visited, set<int> nodes, map<int,int> distances)
+{
+//    int error_loop_counter = 0;
+    int min_dist = 99999;
+    int min_node = -1;
+    for (int i=0; i< routing_table.topo.size(); i++)
+    {        
+        set<int>::const_iterator nodes_it;    
+        set<int>::const_iterator visit_it;
+        nodes_it = nodes.find(i);      
+        //If the current i is in the node queue
+        if (nodes_it != nodes.end())
+        {
+            //If the current i is unvisited, e.g., it is not found when you search visited
+            visit_it = visited.find(i);
+            if (visit_it == visited.end())
+            {
+                if (distances[i] < min_dist)
+                {
+                min_dist = distances[i];
+                min_node = i;
+                }
+            
+            }
+        
+        }
+    
+    }
+    if (min_dist == 99999) 
+        return -1; //An error has occurred; this shouldn't happen
+    else
+        return min_node;
+}
+
+

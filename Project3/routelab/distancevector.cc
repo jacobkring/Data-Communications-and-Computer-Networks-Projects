@@ -61,9 +61,9 @@ void DistanceVector::TimeOut() {
 }
 
 Node* DistanceVector::GetNextHop(Node *destination) { 
-    cerr << "Next hop from current node " << number << " to destination " << (*destination).GetNumber() << "\n";
+    //cerr << "Next hop from current node " << number << " to destination " << (*destination).GetNumber() << "\n";
     unsigned n = routing_table.hops[(*destination).GetNumber()];
-    cerr << "Next hop is " << n << "\n";
+    //cerr << "Next hop is " << n << "\n";
     deque<Node*> mydeque = *GetNeighbors();
     deque<Node*>::iterator i = mydeque.begin();
     Node *nextHop;
