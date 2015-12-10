@@ -31,7 +31,6 @@ void LinkState::ProcessIncomingRoutingMessage(RoutingMessage *m) {
     cerr << *this << " got a routing message: " << *m << " (ignored)" << endl;
     //If a shorter path is found, send this update to neighbors
     if(routing_table.UpdateTable(m)){
-        cerr << "Beep" << endl;
         SendToNeighbors(m);
     }
 }
