@@ -3,6 +3,7 @@
 
 #include "node.h"
 #include <vector>
+#include <set>
 
 class LinkState: public Node {
     private:
@@ -23,7 +24,9 @@ class LinkState: public Node {
         ostream & Print(ostream & os) const;
 
         // Anything else
-        Node* DjikstraTime(vector<int>, vector<int>, vector<bool>, Node *dest, int num_nodes);
+        Node* DjikstraTime(set<int> nodes, set<int> is_visited, Node *dest, int num_nodes);
+        map<int, int> CreateNewMap(map<int,int> prevpaths, int node_number);
+        int GetCurrentSmallest(set<int> visited, set<int> nodes, map<int,int> distances);
 };
 
 inline ostream & operator<<(ostream & os, const LinkState & n) {

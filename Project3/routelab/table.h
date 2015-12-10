@@ -46,6 +46,7 @@ class Table {
         bool UpdateTable(const RoutingMessage *m);
         map < int, map < int, TopoLink > > GetTopo();
         void SetTopo(int source, int dest, int age, int cost);
+        map<int, int> linkstate_map;
         #endif
 
         #if defined(DISTANCEVECTOR)
