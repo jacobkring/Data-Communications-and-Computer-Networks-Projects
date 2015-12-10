@@ -26,7 +26,7 @@ class LinkState: public Node {
         // Anything else
         Node* DjikstraTime(set<int> nodes, set<int> is_visited, Node *dest, int num_nodes);
         map<int, int> CreateNewMap(map<int,int> prevpaths, int node_number);
-        int GetCurrentSmallest(set<int> visited, set<int> nodes, map<int,int> distances);
+        int GetCurrentSmallestDistance(set<int> visited, set<int> nodes, map<int,int> distances);
 };
 
 inline ostream & operator<<(ostream & os, const LinkState & n) {
